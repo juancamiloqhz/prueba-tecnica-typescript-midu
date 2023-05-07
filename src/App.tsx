@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
-import { SortBy, type User } from './types.d'
+import { SortBy } from './types.d'
 import UsersList from './components/UsersList'
+import useUsers from './hooks/useUsers'
 
 function App() {
-  const [users, setUsers] = useState<User[]>([])
+  const { fetchNextPage, hasNextPage, isError, isLoading, refetch, users } = useUsers()
   const [showColors, setShowColors] = useState<boolean>(false)
   const [sorting, setSorting] = useState<SortBy>(SortBy.NONE)
-  const [search, setSearch] = useState<string>('')
-  const originalUsers = useRef<User[]>([])
+  const [search, setSearch] = useState('')
+  // const originalUsers = useRef<User[]>([])
 
   function toggleColors() {
     setShowColors(!showColors)
@@ -20,13 +21,14 @@ function App() {
   }
 
   function handleDelete(uuid: string) {
-    const filteredUsers = users.filter(user => user.login.uuid !== uuid)
-    setUsers(filteredUsers)
+    // const filteredUsers = users.filter(user => user.login.uuid !== uuid)
+    // setUsers(filteredUsers)
   }
 
   function handleReset() {
+    void refetch()
     // console.log('reset')
-    setUsers(originalUsers.current)
+    // setUsers(originalUsers.current)
   }
 
   function handleChangeSort(sort: SortBy) {
@@ -39,16 +41,6 @@ function App() {
       ? users.filter(user => user.location.country.toLowerCase().includes(search.toLowerCase()))
       : users
   }, [search, users])
-
-  useEffect(() => {
-    fetch('https://randomuser.me/api/?results=100')
-      .then(async (res) => await res.json())
-      .then((data) => {
-        setUsers(data.results)
-        originalUsers.current = data.results
-      })
-      .catch((err) => { console.log(err) })
-  }, [])
 
   const sortUsersByCountry = useMemo(() => {
     // console.log('sortUsersByCountry')
@@ -79,8 +71,16 @@ function App() {
         <input type="text" placeholder="Buscar por país..." value={search} onChange={e => { setSearch(e.target.value) }} />
       </header>
       <main>
-
-        <UsersList users={sortUsersByCountry} showColors={showColors} handleDelete={handleDelete} handleChangeSort={handleChangeSort} />
+        {!isError && sortUsersByCountry.length > 0 && (
+          <UsersList users={sortUsersByCountry} showColors={showColors} handleDelete={handleDelete} handleChangeSort={handleChangeSort} />
+        )}
+        {isLoading && <p>Cargando...</p>}
+        {isError && <p>Hubo un error</p>}
+        {!isLoading && !isError && sortUsersByCountry.length === 0 && <p>No hay usuarios</p>}
+        {!isLoading && !isError && sortUsersByCountry.length > 0 && hasNextPage === true && (
+          <button onClick={() => { void fetchNextPage() }}>Cargar más</button>
+        )}
+        {!isLoading && !isError && sortUsersByCountry.length > 0 && hasNextPage === false && <p>No hay más usuarios</p>}
       </main>
     </div>
   )
